@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -52,16 +53,31 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+				// CIVI-SHIELD specific colors
+				emergency: {
+					DEFAULT: '#FF4C4C',
+					light: '#FF7A7A',
+					dark: '#E73C3C'
+				},
+				medical: {
+					DEFAULT: '#28C76F',
+					light: '#4FD683',
+					dark: '#1E8F4F'
+				},
+				disaster: {
+					DEFAULT: '#FFB800',
+					light: '#FFC933',
+					dark: '#E6A600'
+				},
+				navy: {
+					DEFAULT: '#1E2A38',
+					light: '#2C3E50',
+					dark: '#0F1419'
 				}
+			},
+			fontFamily: {
+				'inter': ['Inter', 'sans-serif'],
+				'poppins': ['Poppins', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +100,27 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'wave': {
+					'0%, 100%': { transform: 'scaleY(0.5)' },
+					'50%': { transform: 'scaleY(1.5)' }
+				},
+				'pulse-emergency': {
+					'0%, 100%': { 
+						backgroundColor: '#FF4C4C',
+						transform: 'scale(1)'
+					},
+					'50%': { 
+						backgroundColor: '#FF7A7A',
+						transform: 'scale(1.05)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'wave': 'wave 1s ease-in-out infinite',
+				'pulse-emergency': 'pulse-emergency 2s ease-in-out infinite'
 			}
 		}
 	},
