@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Phone, Home, MessageSquare, Bell, Languages, MapPin, ChevronDown } from 'lucide-react';
+import { Phone, Home, MessageSquare, Bell, Languages, MapPin, ChevronDown, Wifi, WifiOff, WifiLow } from 'lucide-react';
 
 interface Language {
   code: string;
@@ -18,6 +18,11 @@ interface City {
   tier: number;
 }
 
+interface ConnectivityStatus {
+  isOnline: boolean;
+  connectionType: 'high' | 'low' | 'offline';
+}
+
 const TopNavBar = () => {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>({
@@ -30,6 +35,10 @@ const TopNavBar = () => {
     name: 'Delhi',
     state: 'Delhi',
     tier: 1
+  });
+  const [connectivity, setConnectivity] = useState<ConnectivityStatus>({
+    isOnline: navigator.onLine,
+    connectionType: 'high'
   });
 
   const languages: Language[] = [
@@ -67,11 +76,45 @@ const TopNavBar = () => {
     { name: 'Child Helpline', number: '1098', color: 'bg-medical', icon: '👶' },
   ];
 
+  // Monitor internet connectivity
+  useEffect(() => {
+    const updateConnectivity = () => {
+      const isOnline = navigator.onLine;
+      let connectionType: 'high' | 'low' | 'offline' = 'offline';
+      
+      if (isOnline) {
+        // Check connection speed if available
+        const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+        if (connection) {
+          const effectiveType = connection.effectiveType;
+          connectionType = (effectiveType === '4g' || effectiveType === '3g') ? 'high' : 'low';
+        } else {
+          connectionType = 'high'; // Default to high if can't detect
+        }
+      }
+      
+      setConnectivity({ isOnline, connectionType });
+    };
+
+    updateConnectivity();
+    window.addEventListener('online', updateConnectivity);
+    window.addEventListener('offline', updateConnectivity);
+
+    return () => {
+      window.removeEventListener('online', updateConnectivity);
+      window.removeEventListener('offline', updateConnectivity);
+    };
+  }, []);
+
   const handleLanguageChange = (language: Language) => {
     setSelectedLanguage(language);
-    // Dispatch custom event for language change
+    // Dispatch custom event for language change to translate entire page
     window.dispatchEvent(new CustomEvent('languageChange', { 
-      detail: { language: language.code, languageData: language } 
+      detail: { 
+        language: language.code, 
+        languageData: language,
+        translatePage: true 
+      } 
     }));
   };
 
@@ -81,6 +124,24 @@ const TopNavBar = () => {
     window.dispatchEvent(new CustomEvent('locationChange', { 
       detail: { location: city } 
     }));
+  };
+
+  const getConnectivityIcon = () => {
+    if (!connectivity.isOnline) return <WifiOff className="w-4 h-4" />;
+    if (connectivity.connectionType === 'low') return <WifiLow className="w-4 h-4" />;
+    return <Wifi className="w-4 h-4" />;
+  };
+
+  const getConnectivityColor = () => {
+    if (!connectivity.isOnline) return 'text-red-500';
+    if (connectivity.connectionType === 'low') return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  const getConnectivityText = () => {
+    if (!connectivity.isOnline) return 'Offline';
+    if (connectivity.connectionType === 'low') return 'Slow';
+    return 'Online';
   };
 
   return (
@@ -97,7 +158,7 @@ const TopNavBar = () => {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="hidden md:flex items-center space-x-4">
               <a href="#home" className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
                 <Home className="w-4 h-4" />
                 <span>Home</span>
@@ -111,19 +172,22 @@ const TopNavBar = () => {
                 <span>Alerts</span>
               </a>
               
-              {/* Language Dropdown */}
+              {/* Connectivity Status */}
+              <div className={`flex items-center space-x-1 px-2 py-1 rounded-md border ${getConnectivityColor()} border-gray-200`}>
+                {getConnectivityIcon()}
+                <span className="text-xs font-medium">{getConnectivityText()}</span>
+              </div>
+              
+              {/* Language Dropdown - Smaller Button */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
-                    <Languages className="w-4 h-4" />
-                    <span className="flex items-center space-x-1">
-                      <span>{selectedLanguage.flag}</span>
-                      <span>{selectedLanguage.nativeName}</span>
-                    </span>
+                  <button className="flex items-center space-x-1 px-2 py-1 text-sm text-gray-700 hover:text-navy transition-colors border border-gray-200 rounded-md hover:bg-gray-50">
+                    <Languages className="w-3 h-3" />
+                    <span className="text-sm">{selectedLanguage.flag}</span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="w-56 bg-white border border-gray-200 shadow-lg z-50">
                   {languages.map((language) => (
                     <DropdownMenuItem
                       key={language.code}
@@ -140,16 +204,16 @@ const TopNavBar = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Location Dropdown */}
+              {/* Location Dropdown - Smaller Button */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
-                    <MapPin className="w-4 h-4" />
-                    <span>{selectedLocation.name}</span>
+                  <button className="flex items-center space-x-1 px-2 py-1 text-sm text-gray-700 hover:text-navy transition-colors border border-gray-200 rounded-md hover:bg-gray-50">
+                    <MapPin className="w-3 h-3" />
+                    <span className="text-sm">{selectedLocation.name}</span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="w-56 bg-white border border-gray-200 shadow-lg z-50">
                   {cities.map((city) => (
                     <DropdownMenuItem
                       key={`${city.name}-${city.state}`}

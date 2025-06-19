@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TopNavBar from '@/components/TopNavBar';
 import HeroBanner from '@/components/HeroBanner';
 import AlertStrip from '@/components/AlertStrip';
 import QuickPrompts from '@/components/QuickPrompts';
 import ChatInterface from '@/components/ChatInterface';
+import { translatePage, initializeTranslation } from '@/utils/translationService';
 
 const Index = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<string>('');
@@ -17,6 +18,25 @@ const Index = () => {
       block: 'start'
     });
   };
+
+  useEffect(() => {
+    // Initialize translation system
+    initializeTranslation();
+
+    // Listen for language changes
+    const handleLanguageChange = (event: CustomEvent) => {
+      const { language, translatePage: shouldTranslatePage } = event.detail;
+      if (shouldTranslatePage) {
+        translatePage(language);
+      }
+    };
+
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+
+    return () => {
+      window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
@@ -53,7 +73,7 @@ const Index = () => {
             </div>
             
             <div>
-              <h3 className="font-semibold mb-4">Emergency Contacts</h3>
+              <h3 className="font-semibold mb-4" data-translate="true">Emergency Contacts</h3>
               <div className="space-y-2 text-sm text-gray-300">
                 <p>Police: 100</p>
                 <p>Fire: 101</p>
