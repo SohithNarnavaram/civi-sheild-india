@@ -120,21 +120,14 @@ const AlertStrip = () => {
       {activeAlerts.length > 1 && (
         <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
           <div 
-            className="h-full bg-white transition-all duration-[5000ms] ease-linear"
+            className="h-full bg-white animate-pulse"
             style={{ 
               width: '100%',
-              animation: 'progress 5s linear infinite'
+              animation: 'progressBar 5s linear infinite'
             }}
           />
         </div>
       )}
-      
-      <style jsx>{`
-        @keyframes progress {
-          0% { width: 0%; }
-          100% { width: 100%; }
-        }
-      `}</style>
     </div>
   );
 };

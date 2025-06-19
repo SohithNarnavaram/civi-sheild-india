@@ -114,13 +114,18 @@ export default {
 						backgroundColor: '#FF7A7A',
 						transform: 'scale(1.05)'
 					}
+				},
+				'progressBar': {
+					'0%': { width: '0%' },
+					'100%': { width: '100%' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'wave': 'wave 1s ease-in-out infinite',
-				'pulse-emergency': 'pulse-emergency 2s ease-in-out infinite'
+				'pulse-emergency': 'pulse-emergency 2s ease-in-out infinite',
+				'progress-bar': 'progressBar 5s linear infinite'
 			}
 		}
 	},
