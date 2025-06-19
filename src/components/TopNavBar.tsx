@@ -2,10 +2,61 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import { Phone, Home, MessageSquare, Bell, Languages, MapPin } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Phone, Home, MessageSquare, Bell, Languages, MapPin, ChevronDown } from 'lucide-react';
+
+interface Language {
+  code: string;
+  name: string;
+  nativeName: string;
+  flag: string;
+}
+
+interface City {
+  name: string;
+  state: string;
+  tier: number;
+}
 
 const TopNavBar = () => {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>({
+    code: 'en',
+    name: 'English',
+    nativeName: 'English',
+    flag: '🇺🇸'
+  });
+  const [selectedLocation, setSelectedLocation] = useState<City>({
+    name: 'Delhi',
+    state: 'Delhi',
+    tier: 1
+  });
+
+  const languages: Language[] = [
+    { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
+    { code: 'hi', name: 'Hindi', nativeName: 'हिंदी', flag: '🇮🇳' },
+    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', flag: '🇮🇳' },
+    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
+    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳' },
+    { code: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳' },
+    { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', flag: '🇮🇳' },
+    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇮🇳' },
+    { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+    { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', flag: '🇮🇳' }
+  ];
+
+  const cities: City[] = [
+    { name: 'Mumbai', state: 'Maharashtra', tier: 1 },
+    { name: 'Delhi', state: 'Delhi', tier: 1 },
+    { name: 'Bangalore', state: 'Karnataka', tier: 1 },
+    { name: 'Hyderabad', state: 'Telangana', tier: 1 },
+    { name: 'Chennai', state: 'Tamil Nadu', tier: 1 },
+    { name: 'Kolkata', state: 'West Bengal', tier: 1 },
+    { name: 'Pune', state: 'Maharashtra', tier: 1 },
+    { name: 'Ahmedabad', state: 'Gujarat', tier: 1 },
+    { name: 'Jaipur', state: 'Rajasthan', tier: 2 },
+    { name: 'Surat', state: 'Gujarat', tier: 2 }
+  ];
 
   const emergencyContacts = [
     { name: 'Police', number: '100', color: 'bg-emergency', icon: '🚓' },
@@ -15,6 +66,22 @@ const TopNavBar = () => {
     { name: 'Women Helpline', number: '1091', color: 'bg-emergency', icon: '👩' },
     { name: 'Child Helpline', number: '1098', color: 'bg-medical', icon: '👶' },
   ];
+
+  const handleLanguageChange = (language: Language) => {
+    setSelectedLanguage(language);
+    // Dispatch custom event for language change
+    window.dispatchEvent(new CustomEvent('languageChange', { 
+      detail: { language: language.code, languageData: language } 
+    }));
+  };
+
+  const handleLocationChange = (city: City) => {
+    setSelectedLocation(city);
+    // Dispatch custom event for location change
+    window.dispatchEvent(new CustomEvent('locationChange', { 
+      detail: { location: city } 
+    }));
+  };
 
   return (
     <>
@@ -43,14 +110,65 @@ const TopNavBar = () => {
                 <Bell className="w-4 h-4" />
                 <span>Alerts</span>
               </a>
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
-                <Languages className="w-4 h-4" />
-                <span>Language</span>
-              </button>
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
-                <MapPin className="w-4 h-4" />
-                <span>Location</span>
-              </button>
+              
+              {/* Language Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
+                    <Languages className="w-4 h-4" />
+                    <span className="flex items-center space-x-1">
+                      <span>{selectedLanguage.flag}</span>
+                      <span>{selectedLanguage.nativeName}</span>
+                    </span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white border shadow-lg z-50">
+                  {languages.map((language) => (
+                    <DropdownMenuItem
+                      key={language.code}
+                      onClick={() => handleLanguageChange(language)}
+                      className="flex items-center space-x-3 p-3 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <span className="text-lg">{language.flag}</span>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{language.nativeName}</span>
+                        <span className="text-sm text-gray-500">{language.name}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Location Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
+                    <MapPin className="w-4 h-4" />
+                    <span>{selectedLocation.name}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white border shadow-lg z-50">
+                  {cities.map((city) => (
+                    <DropdownMenuItem
+                      key={`${city.name}-${city.state}`}
+                      onClick={() => handleLocationChange(city)}
+                      className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">{city.name}</span>
+                        <span className="text-sm text-gray-500">{city.state}</span>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        city.tier === 1 ? 'bg-medical text-white' : 'bg-disaster text-navy'
+                      }`}>
+                        Tier {city.tier}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Emergency Button */}
