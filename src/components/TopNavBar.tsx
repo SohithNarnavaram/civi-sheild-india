@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import { Phone, Home, MessageSquare, Bell } from 'lucide-react';
+import { Phone, Home, MessageSquare, Bell, Languages, MapPin } from 'lucide-react';
 
 const TopNavBar = () => {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
@@ -30,7 +30,7 @@ const TopNavBar = () => {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden md:flex items-center space-x-6">
               <a href="#home" className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
                 <Home className="w-4 h-4" />
                 <span>Home</span>
@@ -43,6 +43,14 @@ const TopNavBar = () => {
                 <Bell className="w-4 h-4" />
                 <span>Alerts</span>
               </a>
+              <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
+                <Languages className="w-4 h-4" />
+                <span>Language</span>
+              </button>
+              <button className="flex items-center space-x-1 text-gray-700 hover:text-navy transition-colors">
+                <MapPin className="w-4 h-4" />
+                <span>Location</span>
+              </button>
             </div>
 
             {/* Emergency Button */}
