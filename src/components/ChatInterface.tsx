@@ -1,11 +1,15 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Mic, MicOff, MapPin } from 'lucide-react';
+import { MessageSquare, Send, Mic, MicOff, MapPin, Volume2, VolumeX, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TypingAnimation from './TypingAnimation';
+import SpeakingAnimation from './SpeakingAnimation';
+import VoiceWaveAnimation from './VoiceWaveAnimation';
+import ImageUpload from './ImageUpload';
 import { translateText } from '@/utils/translationService';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface Message {
   id: string;
@@ -14,6 +18,7 @@ interface Message {
   timestamp: Date;
   language?: string;
   confidence?: number;
+  image?: string;
 }
 
 interface ChatInterfaceProps {
@@ -29,15 +34,21 @@ interface LocationData {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [isLoading, setIsLoading] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationData>({ name: 'Delhi', state: 'Delhi' });
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
+
+  // Voice hooks
+  const { isListening, transcript, interimTranscript, startListening, stopListening, isSupported: voiceSupported } = useVoiceRecognition();
+  const { isSpeaking, isEnabled: ttsEnabled, speak, stop: stopSpeaking, toggleEnabled: toggleTTS, isSupported: ttsSupported } = useTextToSpeech();
 
   const languages = [
     { code: 'en', name: 'English', emoji: '🇺🇸' },
@@ -47,15 +58,37 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     { code: 'te', name: 'తెలుగు', emoji: '🇮🇳' },
   ];
 
+  // Smart scrolling behavior
+  const scrollToBottom = () => {
+    if (!userScrolledRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+      userScrolledRef.current = !isAtBottom;
+    }
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, showTyping]);
 
   useEffect(() => {
     if (initialPrompt && messages.length === 0) {
       handleSendMessage(initialPrompt);
     }
   }, [initialPrompt]);
+
+  // Voice recognition effects
+  useEffect(() => {
+    if (transcript) {
+      setInputText(transcript);
+    }
+  }, [transcript]);
 
   // Listen for location changes from TopNavBar
   useEffect(() => {
@@ -97,7 +130,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
         const { latitude, longitude } = position.coords;
         
         try {
-          // Use reverse geocoding to get city name
           const response = await fetch(
             `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=demo&language=en&pretty=1`
           );
@@ -116,14 +148,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
             
             setCurrentLocation(detectedLocation);
             
-            // Dispatch event to notify other components
             window.dispatchEvent(new CustomEvent('locationChange', { 
               detail: { location: detectedLocation } 
             }));
           }
         } catch (error) {
           console.error('Error getting location name:', error);
-          // Fallback to coordinates only
           setCurrentLocation({
             name: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
             state: 'GPS Location',
@@ -142,36 +172,55 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     );
   };
 
+  const handleImageSelect = (file: File, preview: string) => {
+    setSelectedImage({ file, preview });
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+  };
+
   const handleSendMessage = async (text?: string) => {
     const messageText = text || inputText.trim();
-    if (!messageText) return;
+    if (!messageText && !selectedImage) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       text: messageText,
       sender: 'user',
       timestamp: new Date(),
-      language: selectedLanguage
+      language: selectedLanguage,
+      image: selectedImage?.preview
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    setSelectedImage(null);
     setShowTyping(true);
+    userScrolledRef.current = false; // Reset scroll behavior for new conversation
 
     try {
-      const aiResponse = await generateGeminiResponse(messageText, selectedLanguage, currentLocation);
+      const aiResponse = await generateGeminiResponse(messageText, selectedLanguage, currentLocation, selectedImage?.file);
       setShowTyping(false);
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Speak the AI response if TTS is enabled
+      if (ttsEnabled && ttsSupported) {
+        speak(aiResponse.text);
+      }
     } catch (error) {
       console.error('Error generating AI response:', error);
       setShowTyping(false);
-      // Fallback to local response
       const fallbackResponse = generateLocalResponse(messageText, selectedLanguage);
       setMessages(prev => [...prev, fallbackResponse]);
+      
+      if (ttsEnabled && ttsSupported) {
+        speak(fallbackResponse.text);
+      }
     }
   };
 
-  const generateGeminiResponse = async (query: string, language: string, location: LocationData): Promise<Message> => {
+  const generateGeminiResponse = async (query: string, language: string, location: LocationData, image?: File): Promise<Message> => {
     const apiKey = 'AIzaSyBc2NrwiERSaVUEIRqBJccENqAZHz8OPRI';
     
     const systemPrompt = `You are an Emergency Response Officer for Indian citizens. Your role is to:
@@ -182,10 +231,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     - Respond in ${language === 'en' ? 'English' : languages.find(l => l.code === language)?.name || 'English'}
     - For life-threatening emergencies, immediately direct to call 112
     - Provide specific local emergency contacts and services when relevant
-    - Be concise but thorough in emergency guidance`;
+    - Be concise but thorough in emergency guidance
+    ${image ? '- Analyze any provided images for emergency context or safety concerns' : ''}`;
 
     const userPrompt = `User location: ${location.name}, ${location.state}${location.coordinates ? ` (${location.coordinates.lat}, ${location.coordinates.lng})` : ''}
     User query: ${query}
+    ${image ? 'User has provided an image for context.' : ''}
     
     Please respond as an Emergency Response Officer.`;
 
@@ -266,9 +317,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     };
   };
 
-  const toggleListening = () => {
-    setIsListening(!isListening);
-    // Voice input implementation would go here
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
   };
 
   return (
@@ -301,8 +355,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
           </Button>
         </div>
 
-        {/* Language Selector */}
-        <div className="flex justify-center mb-6">
+        {/* Language Selector and TTS Toggle */}
+        <div className="flex justify-center items-center mb-6 space-x-4">
           <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Select Language" />
@@ -318,10 +372,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
               ))}
             </SelectContent>
           </Select>
+          
+          {ttsSupported && (
+            <Button
+              onClick={toggleTTS}
+              variant="outline"
+              size="sm"
+              className={`flex items-center space-x-2 ${ttsEnabled ? 'bg-medical text-white' : ''}`}
+            >
+              {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              <span>Voice {ttsEnabled ? 'ON' : 'OFF'}</span>
+            </Button>
+          )}
         </div>
 
         {/* Chat Messages */}
-        <div className="bg-gray-50 rounded-xl shadow-lg mb-6 h-96 overflow-y-auto chat-scroll p-4">
+        <div 
+          ref={chatContainerRef}
+          onScroll={handleScroll}
+          className="bg-gray-50 rounded-xl shadow-lg mb-6 h-96 overflow-y-auto chat-scroll p-4"
+        >
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-500">
               <div className="text-center">
@@ -344,6 +414,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
                         : 'bg-white text-gray-800 border'
                     }`}
                   >
+                    {message.image && (
+                      <img 
+                        src={message.image} 
+                        alt="User uploaded" 
+                        className="w-full rounded-lg mb-2 max-h-40 object-cover"
+                      />
+                    )}
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
                     {message.confidence && (
                       <div className="flex items-center justify-between mt-2 text-xs opacity-70">
@@ -360,56 +437,75 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
                   onComplete={() => setShowTyping(false)} 
                 />
               )}
+              <SpeakingAnimation isActive={isSpeaking} />
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Selected Image Preview */}
+        {selectedImage && (
+          <div className="mb-4 flex justify-center">
+            <div className="relative">
+              <img 
+                src={selectedImage.preview} 
+                alt="Selected" 
+                className="max-h-32 rounded-lg border-2 border-medical"
+              />
+              <Button
+                onClick={removeSelectedImage}
+                variant="ghost"
+                size="sm"
+                className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-red-500 text-white rounded-full hover:bg-red-600"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Input Area */}
         <div className="flex items-center space-x-3">
           <div className="flex-1 relative">
             <Input
               ref={inputRef}
-              value={inputText}
+              value={inputText + interimTranscript}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={translateText('Type your emergency question...', selectedLanguage)}
-              className="pr-12 py-3 text-base rounded-xl border-2 focus:border-medical"
+              className="pr-20 py-3 text-base rounded-xl border-2 focus:border-medical"
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               data-translate-placeholder="true"
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 ${
-                isListening ? 'text-emergency' : 'text-gray-400'
-              }`}
-              onClick={toggleListening}
-            >
-              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </Button>
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+              <ImageUpload
+                onImageSelect={handleImageSelect}
+                disabled={showTyping}
+              />
+              {voiceSupported && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-8 w-8 p-0 ${
+                    isListening ? 'text-emergency' : 'text-gray-400'
+                  }`}
+                  onClick={toggleVoiceInput}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </Button>
+              )}
+            </div>
           </div>
           <Button
             onClick={() => handleSendMessage()}
-            disabled={!inputText.trim() || showTyping}
+            disabled={(!inputText.trim() && !selectedImage) || showTyping}
             className="bg-medical hover:bg-medical-dark text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Send className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Voice Recording Waveform (when listening) */}
-        {isListening && (
-          <div className="flex justify-center items-center mt-4 space-x-1">
-            <div className="text-emergency text-sm mr-3">Listening...</div>
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="w-1 bg-emergency rounded-full wave-bar"
-                style={{ height: '20px' }}
-              />
-            ))}
-          </div>
-        )}
+        {/* Voice Recording Animation */}
+        <VoiceWaveAnimation isListening={isListening} />
       </div>
     </section>
   );
