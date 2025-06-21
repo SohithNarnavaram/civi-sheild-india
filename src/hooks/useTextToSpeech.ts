@@ -3,24 +3,17 @@ import { useState, useRef, useCallback } from 'react';
 
 interface TextToSpeechHook {
   isSpeaking: boolean;
-  isPaused: boolean;
   isEnabled: boolean;
   speak: (text: string) => void;
   stop: () => void;
-  pause: () => void;
-  resume: () => void;
   toggleEnabled: () => void;
   isSupported: boolean;
 }
 
 export const useTextToSpeech = (): TextToSpeechHook => {
-  const [isSpeaking, setI
-
-speaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [isEnabled, setIsEnabled] = useState(true);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const currentTextRef = useRef<string>('');
 
   const isSupported = 'speechSynthesis' in window;
 
@@ -29,26 +22,13 @@ speaking] = useState(false);
 
     // Stop any current speech
     window.speechSynthesis.cancel();
-    setIsPaused(false);
 
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance;
-    currentTextRef.current = text;
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPaused(false);
-    };
-    
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
-    
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
 
     // Set voice properties
     utterance.rate = 0.9;
@@ -59,9 +39,7 @@ speaking] = useState(false);
     const voices = window.speechSynthesis.getVoices();
     const femaleVoice = voices.find(voice => 
       voice.name.toLowerCase().includes('female') || 
-      voice.name.toLowerCase().includes('woman') ||
-      voice.name.toLowerCase().includes('samantha') ||
-      voice.name.toLowerCase().includes('zira')
+      voice.name.toLowerCase().includes('woman')
     );
     if (femaleVoice) {
       utterance.voice = femaleVoice;
@@ -73,41 +51,20 @@ speaking] = useState(false);
   const stop = useCallback(() => {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    setIsPaused(false);
   }, []);
-
-  const pause = useCallback(() => {
-    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-      window.speechSynthesis.pause();
-      setIsPaused(true);
-    }
-  }, []);
-
-  const resume = useCallback(() => {
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-      setIsPaused(false);
-    } else if (currentTextRef.current && !isSpeaking) {
-      // If speech ended but user wants to resume, restart from beginning
-      speak(currentTextRef.current);
-    }
-  }, [speak, isSpeaking]);
 
   const toggleEnabled = useCallback(() => {
     setIsEnabled(prev => !prev);
-    if (isSpeaking || isPaused) {
+    if (isSpeaking) {
       stop();
     }
-  }, [isSpeaking, isPaused, stop]);
+  }, [isSpeaking, stop]);
 
   return {
     isSpeaking,
-    isPaused,
     isEnabled,
     speak,
     stop,
-    pause,
-    resume,
     toggleEnabled,
     isSupported
   };

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Mic, MicOff, MapPin, Volume2, VolumeX, X, Pause, Play } from 'lucide-react';
+import { MessageSquare, Send, Mic, MicOff, MapPin, Volume2, VolumeX, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import TypingAnimation from './TypingAnimation';
 import SpeakingAnimation from './SpeakingAnimation';
@@ -44,52 +44,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
 
   // Voice hooks
-  const { 
-    isListening, 
-    transcript, 
-    interimTranscript, 
-    startListening, 
-    stopListening, 
-    isSupported: voiceSupported,
-    setLanguage: setVoiceLanguage 
-  } = useVoiceRecognition();
-  
-  const { 
-    isSpeaking, 
-    isEnabled: ttsEnabled, 
-    speak, 
-    stop: stopSpeaking, 
-    pause: pauseSpeaking,
-    resume: resumeSpeaking,
-    isPaused,
-    toggleEnabled: toggleTTS, 
-    isSupported: ttsSupported 
-  } = useTextToSpeech();
+  const { isListening, transcript, interimTranscript, startListening, stopListening, isSupported: voiceSupported } = useVoiceRecognition();
+  const { isSpeaking, isEnabled: ttsEnabled, speak, stop: stopSpeaking, toggleEnabled: toggleTTS, isSupported: ttsSupported } = useTextToSpeech();
 
   const languages = [
-    { code: 'en', name: 'English', emoji: '🇺🇸', speechCode: 'en-US' },
-    { code: 'hi', name: 'हिंदी', emoji: '🇮🇳', speechCode: 'hi-IN' },
-    { code: 'kn', name: 'ಕನ್ನಡ', emoji: '🇮🇳', speechCode: 'kn-IN' },
-    { code: 'ta', name: 'தமிழ்', emoji: '🇮🇳', speechCode: 'ta-IN' },
-    { code: 'te', name: 'తెలుగు', emoji: '🇮🇳', speechCode: 'te-IN' },
+    { code: 'en', name: 'English', emoji: '🇺🇸' },
+    { code: 'hi', name: 'हिंदी', emoji: '🇮🇳' },
+    { code: 'kn', name: 'ಕನ್ನಡ', emoji: '🇮🇳' },
+    { code: 'ta', name: 'தமிழ்', emoji: '🇮🇳' },
+    { code: 'te', name: 'తెలుగు', emoji: '🇮🇳' },
   ];
 
-  // Auto-scroll to latest message only
+  // Smart scrolling behavior
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'nearest'
-    });
+    if (!userScrolledRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+      userScrolledRef.current = !isAtBottom;
+    }
   };
 
   useEffect(() => {
-    // Only scroll when new messages are added
-    if (messages.length > 0 || showTyping) {
-      scrollToBottom();
-    }
-  }, [messages.length, showTyping]);
+    scrollToBottom();
+  }, [messages, showTyping]);
 
   useEffect(() => {
     if (initialPrompt && messages.length === 0) {
@@ -103,14 +89,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
       setInputText(transcript);
     }
   }, [transcript]);
-
-  // Update voice recognition language when app language changes
-  useEffect(() => {
-    const currentLang = languages.find(l => l.code === selectedLanguage);
-    if (currentLang && setVoiceLanguage) {
-      setVoiceLanguage(currentLang.speechCode);
-    }
-  }, [selectedLanguage, setVoiceLanguage]);
 
   // Listen for location changes from TopNavBar
   useEffect(() => {
@@ -219,6 +197,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     setInputText('');
     setSelectedImage(null);
     setShowTyping(true);
+    userScrolledRef.current = false; // Reset scroll behavior for new conversation
 
     try {
       const aiResponse = await generateGeminiResponse(messageText, selectedLanguage, currentLocation, selectedImage?.file);
@@ -227,17 +206,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
       
       // Speak the AI response if TTS is enabled
       if (ttsEnabled && ttsSupported) {
-        // Check if message is very long (over 500 characters) and confirm
-        if (aiResponse.text.length > 500) {
-          const shouldSpeak = window.confirm(
-            `This response is quite long (${aiResponse.text.length} characters). Would you like me to read it aloud?`
-          );
-          if (shouldSpeak) {
-            speak(aiResponse.text);
-          }
-        } else {
-          speak(aiResponse.text);
-        }
+        speak(aiResponse.text);
       }
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -246,16 +215,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
       setMessages(prev => [...prev, fallbackResponse]);
       
       if (ttsEnabled && ttsSupported) {
-        if (fallbackResponse.text.length > 500) {
-          const shouldSpeak = window.confirm(
-            `This response is quite long (${fallbackResponse.text.length} characters). Would you like me to read it aloud?`
-          );
-          if (shouldSpeak) {
-            speak(fallbackResponse.text);
-          }
-        } else {
-          speak(fallbackResponse.text);
-        }
+        speak(fallbackResponse.text);
       }
     }
   };
@@ -365,14 +325,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
     }
   };
 
-  const handleVoicePauseResume = () => {
-    if (isPaused) {
-      resumeSpeaking();
-    } else {
-      pauseSpeaking();
-    }
-  };
-
   return (
     <section id="chat-section" className="py-16 px-4 bg-white">
       <div className="max-w-4xl mx-auto">
@@ -434,24 +386,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
           )}
         </div>
 
-        {/* Voice Control (Pause/Resume) - Show when speaking */}
-        {(isSpeaking || isPaused) && ttsEnabled && (
-          <div className="flex justify-center mb-4">
-            <Button
-              onClick={handleVoicePauseResume}
-              variant="outline"
-              size="sm"
-              className="flex items-center space-x-2"
-            >
-              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-              <span>{isPaused ? 'Resume Voice' : 'Pause Voice'}</span>
-            </Button>
-          </div>
-        )}
-
         {/* Chat Messages */}
         <div 
           ref={chatContainerRef}
+          onScroll={handleScroll}
           className="bg-gray-50 rounded-xl shadow-lg mb-6 h-96 overflow-y-auto chat-scroll p-4"
         >
           {messages.length === 0 ? (
@@ -526,18 +464,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
           </div>
         )}
 
-        {/* Voice Recognition Status */}
-        {isListening && (
-          <div className="mb-4 flex justify-center">
-            <div className="flex items-center space-x-2 px-4 py-2 bg-emergency bg-opacity-10 rounded-lg">
-              <Mic className="w-4 h-4 text-emergency animate-pulse" />
-              <span className="text-emergency text-sm font-medium">
-                Listening... ({languages.find(l => l.code === selectedLanguage)?.name})
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Input Area */}
         <div className="flex items-center space-x-3">
           <div className="flex-1 relative">
@@ -546,30 +472,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt }) => {
               value={inputText + interimTranscript}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={translateText('Type your emergency question...', selectedLanguage)}
-              className="pl-12 pr-20 py-3 text-base rounded-xl border-2 focus:border-medical"
+              className="pr-20 py-3 text-base rounded-xl border-2 focus:border-medical"
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               data-translate-placeholder="true"
             />
-            <div className="absolute left-2 top-1/2 transform -translate-y-1/2">
-              {voiceSupported && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-8 w-8 p-0 ${
-                    isListening ? 'text-emergency bg-emergency bg-opacity-10' : 'text-gray-400 hover:text-emergency'
-                  }`}
-                  onClick={toggleVoiceInput}
-                  title={isListening ? 'Stop listening' : 'Start voice input'}
-                >
-                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </Button>
-              )}
-            </div>
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
               <ImageUpload
                 onImageSelect={handleImageSelect}
                 disabled={showTyping}
               />
+              {voiceSupported && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-8 w-8 p-0 ${
+                    isListening ? 'text-emergency' : 'text-gray-400'
+                  }`}
+                  onClick={toggleVoiceInput}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </Button>
+              )}
             </div>
           </div>
           <Button
