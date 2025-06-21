@@ -5,6 +5,7 @@ import HeroBanner from '@/components/HeroBanner';
 import AlertStrip from '@/components/AlertStrip';
 import QuickPrompts from '@/components/QuickPrompts';
 import ChatInterface from '@/components/ChatInterface';
+import EmergencyNumbers from '@/components/EmergencyNumbers';
 import { translatePage, initializeTranslation } from '@/utils/translationService';
 
 const Index = () => {
@@ -48,6 +49,11 @@ const Index = () => {
       
       {/* Hero Section */}
       <HeroBanner />
+      
+      {/* Emergency Numbers Section */}
+      <section className="py-16 bg-gray-50">
+        <EmergencyNumbers />
+      </section>
       
       {/* Quick Prompts */}
       <QuickPrompts onPromptSelect={handlePromptSelect} />
