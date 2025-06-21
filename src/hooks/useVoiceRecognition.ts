@@ -32,6 +32,7 @@ interface VoiceRecognitionHook {
   interimTranscript: string;
   startListening: () => void;
   stopListening: () => void;
+  setLanguage: (lang: string) => void;
   isSupported: boolean;
 }
 
@@ -39,6 +40,7 @@ export const useVoiceRecognition = (): VoiceRecognitionHook => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,7 +55,7 @@ export const useVoiceRecognition = (): VoiceRecognitionHook => {
     const recognition = recognitionRef.current;
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = language;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -77,13 +79,13 @@ export const useVoiceRecognition = (): VoiceRecognitionHook => {
       setTranscript(prev => prev + finalTranscript);
       setInterimTranscript(interimTranscript);
 
-      // Auto-stop on silence (3 seconds)
+      // Auto-stop on silence (4 seconds for better user experience)
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
       }
       silenceTimeoutRef.current = setTimeout(() => {
         recognition.stop();
-      }, 3000);
+      }, 4000);
     };
 
     recognition.onend = () => {
@@ -94,13 +96,14 @@ export const useVoiceRecognition = (): VoiceRecognitionHook => {
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event);
       setIsListening(false);
       setInterimTranscript('');
     };
 
     recognition.start();
-  }, [isSupported]);
+  }, [isSupported, language]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -111,12 +114,17 @@ export const useVoiceRecognition = (): VoiceRecognitionHook => {
     }
   }, []);
 
+  const setVoiceLanguage = useCallback((lang: string) => {
+    setLanguage(lang);
+  }, []);
+
   return {
     isListening,
     transcript,
     interimTranscript,
     startListening,
     stopListening,
+    setLanguage: setVoiceLanguage,
     isSupported
   };
 };
