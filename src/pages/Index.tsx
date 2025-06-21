@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Phone } from 'lucide-react';
 import TopNavBar from '@/components/TopNavBar';
 import HeroBanner from '@/components/HeroBanner';
 import AlertStrip from '@/components/AlertStrip';
 import QuickPrompts from '@/components/QuickPrompts';
 import ChatInterface from '@/components/ChatInterface';
-import EmergencyNumbers from '@/components/EmergencyNumbers';
 import { translatePage, initializeTranslation } from '@/utils/translationService';
 
 const Index = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<string>('');
+  const navigate = useNavigate();
 
   const handlePromptSelect = (prompt: string) => {
     setSelectedPrompt(prompt);
@@ -50,9 +53,22 @@ const Index = () => {
       {/* Hero Section */}
       <HeroBanner />
       
-      {/* Emergency Numbers Section */}
-      <section className="py-16 bg-gray-50">
-        <EmergencyNumbers />
+      {/* Emergency Access Section */}
+      <section className="py-16 bg-emergency text-white">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Quick Emergency Access</h2>
+          <p className="text-xl mb-8 text-emergency-light">
+            Access all emergency numbers and your personal contacts instantly
+          </p>
+          <Button
+            onClick={() => navigate('/emergency')}
+            size="lg"
+            className="bg-white text-emergency hover:bg-gray-100 text-lg px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Phone className="w-6 h-6 mr-3" />
+            View Emergency Numbers
+          </Button>
+        </div>
       </section>
       
       {/* Quick Prompts */}
