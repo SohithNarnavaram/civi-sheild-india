@@ -39,8 +39,7 @@ export const useTextToSpeech = (): TextToSpeechHook => {
     const voices = window.speechSynthesis.getVoices();
     const femaleVoice = voices.find(voice => 
       voice.name.toLowerCase().includes('female') || 
-      voice.name.toLowerCase().includes('woman') ||
-      voice.gender === 'female'
+      voice.name.toLowerCase().includes('woman')
     );
     if (femaleVoice) {
       utterance.voice = femaleVoice;
